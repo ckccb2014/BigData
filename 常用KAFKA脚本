@@ -1,0 +1,112 @@
+bin/kafka-topics.sh --zookeeper localhost:2181/kafka --create 
+--topic topic-create-same --replica-assignment 2:0,0:1,1:2,2:1
+Created topic "topic-create-same"
+
+#创建主题
+kafka-topics.sh --zookeeper <zookeeper connet> --create --topic <string> --replication-factor <integer> --partitions <integer>
+--disable-rack-aware #忽略机架信息
+--if-not-exists #忽略重复创建主题的错误
+
+#增加分区：扩展主题容量或者降低单个分区的吞吐量
+kafka-topics.sh --zookeeper localhost:2181/kafka --alter --topic topic_name --partitions 16
+
+#删除主题：broker 的 delete.topic.enable 必须为 true
+kafka-topics.sh --zookeeper localhost:2181/kafka --delete --topic topic_name 
+
+#列出集群中的所有主题
+kafka-topics.sh --zookeeper localhost:2181/kafka --list
+
+#列出主题详细信息
+kafka-topics.sh --zookeeper localhost:2181/kafka --describe
+--topics-with-overrides #找出所有包含覆盖配置的主题，也就是只列出包含了存在与集群不一样的配置的主题
+--under-replicated-partitions #找出有问题的分区，列出所有包含不同步副本的分区
+--unavailable-paritions #找出有问题的分区，列出所有没有leader的分区，这些分区已经处于离线状态，对于生产者和消费者来说都是不可用的
+
+#列出新版本的消费者群组
+kafka-consumer-groups.sh --new-consumer 
+--bootstrap-server localhost:9092/kafka #--bootstrap-server 参数指定broker的主机名和端口号 
+--list
+
+#列出指定群组的详细信息
+kafka-consumer-gourps.sh --zookeeper localhost:2181/kafka --describe --group group_name
+
+#删除群组：只有旧版本的消费者客户端才支持删除群组的操作
+kafka-consumer-groups.sh --zookeeper localhost:2181/kafka --delete group_name
+
+#从消费者群组里删除某主题的偏移量
+kafka-consumer-groups.sh --zookeeper localhost:2181/kafka --delete --group group_name --topic my_topic
+
+#将群组testgroup 的偏移量导出到file_name文件中
+kafka-run-class.sh kafka.tools.ExportZkOffsets 
+--zkconnect localhost:2181/kafka --group testgroup
+--output-file file_name
+
+#从 file_name 文件里将偏移量导入都消费者群组testgroup中
+kafka-run-class.sh kafka.tools.ImportZkOffsets --zkconnect localhost:2181/kafka --input-file file_name
+
+#覆盖主题的默认配置
+kafka-configs.sh --zookeeper localhost:2181/kafka --alter 
+--entity-type topics
+--entity-name <topic_name>
+--add-config <key>=<value>[,<key>=<value>...]
+
+#更改客户端配置
+kafka-configs.sh --zookeeper localhost:2181/kafka --alter
+--entity-type clients 
+--entity-name <client_id>
+--add-config <key>=<value>[,<key>=<value>...]
+
+#列出被覆盖的配置，从而用于检查主题或客户端的配置
+kafka-configs.sh --zookeeper localhost:2181/kafka --describe 
+--entity-type topics
+--entity-name my-topic
+
+#移除被覆盖的配置
+kafka-configs.sh --zookeeper localhost:2181/kafka --alter 
+--entity-type topics
+--entity-name my-topic
+--delete-config <配置参数名称>
+
+#手动触发首选的副本选举
+kafka-preferred-replica-election.sh --zookeeper localhost:2181/kafka
+
+#通过指定分区清单的文件partitions.json，来触发首选的副本选举
+kafka-preferred-replica-election.sh --zookeeper localhost:2181/kafka 
+--path-to-json-file partitions.json
+
+#分区迁移
+步骤一. 根据broker清单和主题清单生成一组迁移步骤
+kafka-reassign-partitions.sh --zookeeper localhost:2181/kafka --generate --topics-to-move-json-file topics.json
+--broker-list 0,1 ##从topics.json 文件中获取要迁移的分区信息，将分区迁移到broker id 为0,1的broker上
+
+步骤二. 执行迁移步骤
+kafka-reassign-partitions.sh --zookeeper localhost:2181/kafka --execute
+--reassignment-json-file reassign.json ##reassign.json 为步骤一中generate的 迁移建议
+
+步骤三.使用生成的迁移步骤验证分区重分配的进度和完成情况
+kafka-reassign-partitions.sh --zookeeper localhost:2181/kafka --verify 
+--reassignment-json-file reassign.json
+
+#解码日志片段 xxx.log ，显式消息的概要信息
+kafka-run-class.sh kafka.tools.DumpLogSegments --files xxx.log
+--print-data-log ##显示消息的数据内容
+
+#验证日志片段的索引文件
+kafka-run-class.sh kafka.tools.DumpLogSegments --files
+xx.index,xx.log
+--index-sanity-check ## 检查无用的索引
+--verify-index-only ## 检查索引的匹配度，但不打印出所有的索引
+
+#验证集群分区副本的一致性
+kafka-replica-verification.sh --broker-list
+localhost:9092,xx:9092 --topic-white-list 'my-.*'  ##验证两个broker上的 以 my-开头的topic的分区副本是否一致
+
+#向指定主题发送消息:从标准输入接收文字，并将它们发送到某个topic
+kafka-console-producer.sh --broker-list localhost:9092/kafka --topic topic-action 
+
+#消费某topic 下的消息，并打印到标准输出，旧版消费者
+kafka-console-consumer.sh --zookeeper localhost:2181/kafka --topic topic_name
+
+#消费某topic 下的消息，并打印到标准输出，新版消费者
+kafka-console-consumer.sh --bootstrap-server localhost:9092/kafka --topic topic-action --from-beginning
+
